@@ -174,3 +174,26 @@ target_link_libraries(mapf_prioritized_sipp
   ${Boost_LIBRARIES}
   yaml-cpp
 )
+
+## a_star_macc
+add_executable(a_star_macc
+  example/a_star_macc.cpp
+)
+target_link_libraries(a_star_macc
+  ${Boost_LIBRARIES}
+  yaml-cpp
+)
+
+# cbs_parallen
+ add_executable(cbs_p
+   example/cbs_p.cpp
+ )
+ target_link_libraries(cbs_p
+   ${Boost_LIBRARIES}
+   yaml-cpp
+   pthread
+ )
+ target_include_directories(cbs_p
+ PUBLIC
+   ${CMAKE_CURRENT_SOURCE_DIR}/include/
+ )
