@@ -3,10 +3,11 @@
 
 #include <boost/functional/hash.hpp>
 #include <boost/program_options.hpp>
+#include <numeric>
 
 #include <yaml-cpp/yaml.h>
 
-#include <libMultiRobotPlanning/cbs.hpp>
+#include <libMultiRobotPlanning/cbs_parallel_ma.hpp>
 #include "timer.hpp"
 
 using libMultiRobotPlanning::CBS;
@@ -31,7 +32,6 @@ struct State {
   int x;
   int y;
 };
-
 namespace std {
 template <>
 struct hash<State> {
@@ -243,6 +243,40 @@ struct hash<Location> {
 };
 }  // namespace std
 
+struct ThreadContext {
+
+    ThreadContext(size_t angetIdx, const Constraints* constraints,
+                  const std::vector<Location>& goals)
+        :m_agentIdx(angetIdx), m_constraints(constraints),
+         m_lastGoalConstraint(-1), m_lowLevelExpanded(0)
+    {
+        for (const auto& vc : constraints->vertexConstraints) {
+          if (vc.x == goals[m_agentIdx].x && vc.y == goals[m_agentIdx].y) {
+            m_lastGoalConstraint = std::max(m_lastGoalConstraint, vc.time);
+          }
+        }
+    }
+    ThreadContext(){}
+    ThreadContext(const ThreadContext& other):
+        m_agentIdx(other.m_agentIdx), m_constraints(other.m_constraints),
+        m_lastGoalConstraint(other.m_lastGoalConstraint), m_lowLevelExpanded(other.m_lowLevelExpanded) {
+
+    }
+    ThreadContext& operator=(const ThreadContext& other) {
+        m_agentIdx = other.m_agentIdx;
+        m_constraints = other.m_constraints;
+        m_lastGoalConstraint = other.m_lastGoalConstraint;
+        m_lowLevelExpanded = other.m_lowLevelExpanded;
+        return *this;
+    }
+
+    size_t m_agentIdx;
+    const Constraints* m_constraints;
+    int m_lastGoalConstraint;
+    int m_lowLevelExpanded;
+};
+thread_local ThreadContext thread_context;
+
 ///
 class Environment {
  public:
@@ -252,11 +286,13 @@ class Environment {
         m_dimy(dimy),
         m_obstacles(std::move(obstacles)),
         m_goals(std::move(goals)),
-        m_agentIdx(0),
-        m_constraints(nullptr),
-        m_lastGoalConstraint(-1),
+        // m_agentIdx(0),
+        // m_constraints(nullptr),
+        // m_lastGoalConstraint(-1),
         m_highLevelExpanded(0),
-        m_lowLevelExpanded(0) {
+        // m_lowLevelExpanded(0),
+        m_lowLevelExpandedEveryAgent(m_goals.size(), 0)
+  {
     // computeHeuristic();
   }
 
@@ -265,27 +301,20 @@ class Environment {
 
   void setLowLevelContext(size_t agentIdx, const Constraints* constraints) {
     assert(constraints);  // NOLINT
-    m_agentIdx = agentIdx;
-    m_constraints = constraints;
-    m_lastGoalConstraint = -1;
-    for (const auto& vc : constraints->vertexConstraints) {
-      if (vc.x == m_goals[m_agentIdx].x && vc.y == m_goals[m_agentIdx].y) {
-        m_lastGoalConstraint = std::max(m_lastGoalConstraint, vc.time);
-      }
-    }
+    thread_context = ThreadContext(agentIdx, constraints, m_goals);
   }
 
-  int admissibleHeuristic(const State& s) {
+  int admissibleHeuristic(const State& s) const {
     // std::cout << "H: " <<  s << " " << m_heuristic[m_agentIdx][s.x + m_dimx *
     // s.y] << std::endl;
     // return m_heuristic[m_agentIdx][s.x + m_dimx * s.y];
-    return std::abs(s.x - m_goals[m_agentIdx].x) +
-           std::abs(s.y - m_goals[m_agentIdx].y);
+    return std::abs(s.x - m_goals[thread_context.m_agentIdx].x) +
+           std::abs(s.y - m_goals[thread_context.m_agentIdx].y);
   }
 
-  bool isSolution(const State& s) {
-    return s.x == m_goals[m_agentIdx].x && s.y == m_goals[m_agentIdx].y &&
-           s.time > m_lastGoalConstraint;
+  bool isSolution(const State& s) const {
+    return s.x == m_goals[thread_context.m_agentIdx].x && s.y == m_goals[thread_context.m_agentIdx].y &&
+           s.time > thread_context.m_lastGoalConstraint;
   }
 
   void getNeighbors(const State& s,
@@ -409,12 +438,15 @@ class Environment {
 
   void onExpandLowLevelNode(const State& /*s*/, int /*fScore*/,
                             int /*gScore*/) {
-    m_lowLevelExpanded++;
+      ++m_lowLevelExpandedEveryAgent[thread_context.m_agentIdx];
+//    m_lowLevelExpanded++;
   }
 
   int highLevelExpanded() { return m_highLevelExpanded; }
 
-  int lowLevelExpanded() const { return m_lowLevelExpanded; }
+  int lowLevelExpanded() const {  
+    return  std::accumulate(m_lowLevelExpandedEveryAgent.begin(),
+     m_lowLevelExpandedEveryAgent.end(), 0); }
 
  private:
   State getState(size_t agentIdx,
@@ -429,16 +461,18 @@ class Environment {
   }
 
   bool stateValid(const State& s) {
-    assert(m_constraints);
-    const auto& con = m_constraints->vertexConstraints;
+    auto _constraints = thread_context.m_constraints;
+    assert(_constraints);
+    const auto& con = _constraints->vertexConstraints;
     return s.x >= 0 && s.x < m_dimx && s.y >= 0 && s.y < m_dimy &&
            m_obstacles.find(Location(s.x, s.y)) == m_obstacles.end() &&
            con.find(VertexConstraint(s.time, s.x, s.y)) == con.end();
   }
 
   bool transitionValid(const State& s1, const State& s2) {
-    assert(m_constraints);
-    const auto& con = m_constraints->edgeConstraints;
+    auto _constraints = thread_context.m_constraints;
+    assert(_constraints);
+    const auto& con = _constraints->edgeConstraints;
     return con.find(EdgeConstraint(s1.time, s1.x, s1.y, s2.x, s2.y)) ==
            con.end();
   }
@@ -561,39 +595,40 @@ class Environment {
   std::unordered_set<Location> m_obstacles;
   std::vector<Location> m_goals;
   // std::vector< std::vector<int> > m_heuristic;
-  size_t m_agentIdx;
-  const Constraints* m_constraints;
-  int m_lastGoalConstraint;
+  // size_t m_agentIdx;
+  // const Constraints* m_constraints;
+  // int m_lastGoalConstraint;
   int m_highLevelExpanded;
-  int m_lowLevelExpanded;
+  // int m_lowLevelExpanded;
+  std::vector<int> m_lowLevelExpandedEveryAgent;
 };
 
 int main(int argc, char* argv[]) {
   namespace po = boost::program_options;
   // Declare the supported options.
   po::options_description desc("Allowed options");
-  std::string inputFile;
-  std::string outputFile;
-  desc.add_options()("help", "produce help message")(
-      "input,i", po::value<std::string>(&inputFile)->required(),
-      "input file (YAML)")("output,o",
-                           po::value<std::string>(&outputFile)->required(),
-                           "output file (YAML)");
+  std::string inputFile{""};
+  std::string outputFile{""};
+ desc.add_options()("help", "produce help message")(
+     "input,i", po::value<std::string>(&inputFile)->required(),
+     "input file (YAML)")("output,o",
+                          po::value<std::string>(&outputFile)->required(),
+                          "output file (YAML)");
 
-  try {
-    po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, desc), vm);
-    po::notify(vm);
+ try {
+   po::variables_map vm;
+   po::store(po::parse_command_line(argc, argv, desc), vm);
+   po::notify(vm);
 
-    if (vm.count("help") != 0u) {
-      std::cout << desc << "\n";
-      return 0;
-    }
-  } catch (po::error& e) {
-    std::cerr << e.what() << std::endl << std::endl;
-    std::cerr << desc << std::endl;
-    return 1;
-  }
+   if (vm.count("help") != 0u) {
+     std::cout << desc << "\n";
+     return 0;
+   }
+ } catch (po::error& e) {
+   std::cerr << e.what() << std::endl << std::endl;
+   std::cerr << desc << std::endl;
+   return 1;
+ }
 
   YAML::Node config = YAML::LoadFile(inputFile);
 
@@ -659,7 +694,8 @@ int main(int argc, char* argv[]) {
             << "      t: " << state.second << std::endl;
       }
     }
-        /* std::cout */
+
+    /* std::cout */
     std::cout << "statistics:" << std::endl;
     std::cout << "  cost: " << cost << std::endl;
     std::cout << "  makespan: " << makespan << std::endl;

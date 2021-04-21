@@ -607,28 +607,28 @@ int main(int argc, char* argv[]) {
   namespace po = boost::program_options;
   // Declare the supported options.
   po::options_description desc("Allowed options");
-  std::string inputFile{"../benchmark/32x32_obst204/map_32by32_obst204_agents20_ex1.yaml"};
-  std::string outputFile{"poutput.yaml"};
-//  desc.add_options()("help", "produce help message")(
-//      "input,i", po::value<std::string>(&inputFile)->required(),
-//      "input file (YAML)")("output,o",
-//                           po::value<std::string>(&outputFile)->required(),
-//                           "output file (YAML)");
+  std::string inputFile;
+  std::string outputFile;
+ desc.add_options()("help", "produce help message")(
+     "input,i", po::value<std::string>(&inputFile)->required(),
+     "input file (YAML)")("output,o",
+                          po::value<std::string>(&outputFile)->required(),
+                          "output file (YAML)");
 
-//  try {
-//    po::variables_map vm;
-//    po::store(po::parse_command_line(argc, argv, desc), vm);
-//    po::notify(vm);
+ try {
+   po::variables_map vm;
+   po::store(po::parse_command_line(argc, argv, desc), vm);
+   po::notify(vm);
 
-//    if (vm.count("help") != 0u) {
-//      std::cout << desc << "\n";
-//      return 0;
-//    }
-//  } catch (po::error& e) {
-//    std::cerr << e.what() << std::endl << std::endl;
-//    std::cerr << desc << std::endl;
-//    return 1;
-//  }
+   if (vm.count("help") != 0u) {
+     std::cout << desc << "\n";
+     return 0;
+   }
+ } catch (po::error& e) {
+   std::cerr << e.what() << std::endl << std::endl;
+   std::cerr << desc << std::endl;
+   return 1;
+ }
 
   YAML::Node config = YAML::LoadFile(inputFile);
 

@@ -197,3 +197,30 @@ target_link_libraries(a_star_macc
  PUBLIC
    ${CMAKE_CURRENT_SOURCE_DIR}/include/
  )
+
+ # cbs_with_modified_a*
+ add_executable(cbs_ma
+   example/cbs_ma.cpp
+ )
+ target_link_libraries(cbs_ma
+   ${Boost_LIBRARIES}
+   yaml-cpp
+   pthread
+ )
+ target_include_directories(cbs_ma
+ PUBLIC
+   ${CMAKE_CURRENT_SOURCE_DIR}/include/
+ )
+ # cbs_with_modified_a* parallel
+ add_executable(cbs_p_ma
+   example/cbs_p_ma.cpp
+ )
+ target_link_libraries(cbs_p_ma
+   ${Boost_LIBRARIES}
+   yaml-cpp
+   pthread
+ )
+ target_include_directories(cbs_p_ma
+ PUBLIC
+   ${CMAKE_CURRENT_SOURCE_DIR}/include/
+ )

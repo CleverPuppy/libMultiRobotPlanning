@@ -6,7 +6,7 @@
 
 #include <yaml-cpp/yaml.h>
 
-#include <libMultiRobotPlanning/cbs.hpp>
+#include <libMultiRobotPlanning/cbs_with_ma.hpp>
 #include "timer.hpp"
 
 using libMultiRobotPlanning::CBS;
