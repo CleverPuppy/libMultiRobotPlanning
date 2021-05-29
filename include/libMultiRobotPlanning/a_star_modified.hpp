@@ -121,8 +121,8 @@ class AStar {
           if(cameFrom.count(current.state) != 0) {
             const auto& s_tuple = cameFrom.at(current.state);
             const auto& parent_state = std::get<0>(s_tuple);
-            if(std::abs(parent_state.x - neighbor.state.x) == 2 || std::abs(parent_state.y - neighbor.state.y) ) {
-              tentative_gScore -= 1; // if same direction, then g -1
+            if(std::abs(parent_state.x - neighbor.state.x) == 2 || std::abs(parent_state.y - neighbor.state.y) == 2 ) {
+              tentative_gScore -= 0.2; // if same direction, then g -1
               // isSameDirection = true;
             }
           }

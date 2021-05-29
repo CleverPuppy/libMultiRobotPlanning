@@ -211,6 +211,21 @@ target_link_libraries(a_star_macc
  PUBLIC
    ${CMAKE_CURRENT_SOURCE_DIR}/include/
  )
+
+  # cbs_with_dijkstra
+add_executable(cbs_dijkstra
+  example/cbs_dijkstra.cpp
+)
+target_link_libraries(cbs_dijkstra
+  ${Boost_LIBRARIES}
+  yaml-cpp
+  pthread
+)
+target_include_directories(cbs_dijkstra
+PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/include/
+)
+
  # cbs_with_modified_a* parallel
  add_executable(cbs_p_ma
    example/cbs_p_ma.cpp

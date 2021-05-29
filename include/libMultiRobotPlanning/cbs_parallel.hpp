@@ -81,7 +81,7 @@ template <typename State, typename Action, typename Cost, typename Conflict,
           typename Constraints, typename Environment>
 class CBS {
  public:
-  CBS(Environment& environment) : m_env(environment), pool(4) {}
+  CBS(Environment& environment) : m_env(environment), pool(1) {}
   bool search(const std::vector<State>& initialStates,
               std::vector<PlanResult<State, Action, Cost> >& solution) {
     HighLevelNode start;
