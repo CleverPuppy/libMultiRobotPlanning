@@ -8,12 +8,18 @@ It is written in C++(14), highly templated for good performance, and comes with 
 The following algorithms are currently supported:
 
 * Single-Robot Algorithms
+  * Dijkstra
   * A*
+  * Improved A* (with extra turn gain)
   * A* epsilon (also known as focal search)
   * SIPP (Safe Interval Path Planning)
 
 * Multi-Robot Algorithms
   * Conflict-Based Search (CBS)
+  * CBS with Dijkstra
+  * CBS with Improved A*
+  * Parallel CBS
+  * Parallel CBS with Improved A*
   * Enhanced Conflict-Based Search (ECBS)
   * Conflict-Based Search with Optimal Task Assignment (CBS-TA)
   * Enhanced Conflict-Based Search with Optimal Task Assignment (ECBS-TA)
